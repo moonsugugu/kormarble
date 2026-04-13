@@ -1,14 +1,7 @@
 
-
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { HistoricalEvent, Dynasty, BoardSpace } from '../types';
 import { DYNASTY_NAMES } from '../constants';
-
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const eventSchema = {
     type: Type.OBJECT,
@@ -42,25 +35,52 @@ const eventSchema = {
     required: ["eventType", "description", "goldChange", "stealAmount"],
 };
 
-export const generateHistoricalEvent = async (dynasty: Dynasty): Promise<HistoricalEvent> => {
+const getFallbackEvent = (): HistoricalEvent => {
+    const fallbacks: HistoricalEvent[] = [
+        {
+            description: "시간의 균열을 발견했습니다! 50골드를 획득합니다.",
+            eventType: 'GOLD_CHANGE',
+            goldChange: 50,
+        },
+        {
+            description: "알 수 없는 힘에 이끌려 출발점으로 돌아갑니다!",
+            eventType: 'GOTO_START',
+        },
+        {
+            description: "길에서 오래된 보물 지도를 주웠습니다! 100골드를 획득합니다.",
+            eventType: 'GOLD_CHANGE',
+            goldChange: 100,
+        },
+        {
+            description: "역사의 소용돌이에 휘말려 무인도로 가게 됩니다!",
+            eventType: 'GOTO_ISLAND',
+        }
+    ];
+    const randomIndex = Math.floor(Math.random() * fallbacks.length);
+    return fallbacks[randomIndex];
+};
+
+export const generateHistoricalEvent = async (dynasty: Dynasty, apiKey?: string): Promise<HistoricalEvent> => {
+    if (!apiKey) {
+        return getFallbackEvent();
+    }
+
+    // @ts-ignore
+    const ai = new GoogleGenAI({ apiKey });
     const dynastyName = DYNASTY_NAMES[dynasty];
     try {
-        const apiCall = ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: `한국 '${dynastyName}' 시대 배경의 귀여운 보드게임 역사 사건 카드 1개를 JSON으로 생성해줘. 스키마 설명을 따르고, 다양하고 창의적인 사건을 만들어줘.`,
-            config: {
+        // @ts-ignore
+        const model = ai.getGenerativeModel({
+            model: "gemini-1.5-flash",
+            generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: eventSchema,
             },
         });
-
-        const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('API Timeout')), 10000)
-        );
         
-        const response = await Promise.race([apiCall, timeoutPromise]);
+        const result = await model.generateContent(`한국 '${dynastyName}' 시대 배경의 귀여운 보드게임 역사 사건 카드 1개를 JSON으로 생성해줘. 스키마 설명을 따르고, 다양하고 창의적인 사건을 만들어줘.`);
 
-        const jsonText = response.text.trim();
+        const jsonText = result.response.text().trim();
         const eventData = JSON.parse(jsonText);
         
         const validEventTypes = ['GOLD_CHANGE', 'STEAL_MONEY', 'GOTO_ISLAND', 'GOTO_TREASURY', 'GOTO_START', 'GOTO_TRAVEL', 'GOTO_NEAREST_ITEM'];
@@ -88,32 +108,17 @@ export const generateHistoricalEvent = async (dynasty: Dynasty): Promise<Histori
 
     } catch (error) {
         console.error("Error generating historical event:", error);
-        const fallbacks: HistoricalEvent[] = [
-            {
-                description: "시간의 균열을 발견했습니다! 50골드를 획득합니다.",
-                eventType: 'GOLD_CHANGE',
-                goldChange: 50,
-            },
-            {
-                description: "알 수 없는 힘에 이끌려 출발점으로 돌아갑니다!",
-                eventType: 'GOTO_START',
-            },
-            {
-                description: "길에서 오래된 보물 지도를 주웠습니다! 100골드를 획득합니다.",
-                eventType: 'GOLD_CHANGE',
-                goldChange: 100,
-            },
-            {
-                description: "역사의 소용돌이에 휘말려 무인도로 가게 됩니다!",
-                eventType: 'GOTO_ISLAND',
-            }
-        ];
-        const randomIndex = Math.floor(Math.random() * fallbacks.length);
-        return fallbacks[randomIndex];
+        return getFallbackEvent();
     }
 };
 
-export const generateWorksheetContent = async (dynastyName: string, board: BoardSpace[]): Promise<string> => {
+export const generateWorksheetContent = async (dynastyName: string, board: BoardSpace[], apiKey?: string): Promise<string> => {
+    if (!apiKey) {
+        throw new Error("학습지 생성 기능을 사용하려면 설정에서 Google API 키를 입력해주세요.");
+    }
+
+    // @ts-ignore
+    const ai = new GoogleGenAI({ apiKey });
     const content = board
         .filter(space => space.type === 'city' && space.description)
         .map(space => `- ${space.name}: ${space.description?.replace(/\*\*/g, '')}`)
@@ -140,14 +145,15 @@ export const generateWorksheetContent = async (dynastyName: string, board: Board
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
+        // @ts-ignore
+        const model = ai.getGenerativeModel({
+            model: 'gemini-1.5-flash',
         });
+        const result = await model.generateContent(prompt);
 
-        return response.text;
+        return result.response.text();
     } catch (error) {
         console.error("Error generating worksheet:", error);
-        throw new Error("학습지 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        throw new Error("학습지 생성에 실패했습니다. API 키가 올바른지 확인하거나 잠시 후 다시 시도해주세요.");
     }
 };

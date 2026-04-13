@@ -14,6 +14,7 @@ import VictoryConditionSelection from './components/VictoryConditionSelection';
 import GameSetup from './components/GameSetup';
 import GameScreen from './components/GameScreen';
 import ConfirmModal from './components/ConfirmModal';
+import ApiKeyModal from './components/ApiKeyModal';
 import { generateHistoricalEvent } from './services/geminiService';
 
 const soundCache: { [key: string]: HTMLAudioElement } = {};
@@ -629,6 +630,12 @@ const App: React.FC = () => {
   const [isProcessingTurn, setIsProcessingTurn] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('gemini_api_key') || '');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('gemini_api_key', apiKey);
+  }, [apiKey]);
   const [isMuted, setIsMuted] = useState(false);
 
   const prevStateRef = useRef<GameState>();
@@ -790,7 +797,7 @@ const App: React.FC = () => {
         dispatch({ type: 'FETCH_EVENT_START' });
         playSound(SOUNDS.EVENT_CARD);
 
-        const event = await generateHistoricalEvent(state.dynasty!);
+        const event = await generateHistoricalEvent(state.dynasty!, apiKey);
         dispatch({type: 'APPLY_EVENT', payload: event});
     } else if (currentSpace.type === 'item') {
         const effectGroups: { [key: string]: ItemEffect[] } = {
@@ -1093,11 +1100,11 @@ const App: React.FC = () => {
   return (
     <div className="bg-amber-50 min-h-screen flex items-center justify-center p-2 sm:p-4 background-container" style={backgroundStyle}>
       <div className="w-full max-w-7xl mx-auto">
-        {state.stage === GameStage.DynastySelection && <DynastySelection onSelectDynasty={selectDynasty} />}
+        {state.stage === GameStage.DynastySelection && <DynastySelection onSelectDynasty={selectDynasty} apiKey={apiKey} onOpenApiKeyModal={() => setShowApiKeyModal(true)} />}
         {state.stage === GameStage.VictoryConditionSelection && <VictoryConditionSelection onSelect={selectVictoryCondition} />}
         {state.stage === GameStage.Setup && <GameSetup onStartGame={startGame} />}
-        {state.stage === GameStage.Playing && <GameScreen gameState={state} dispatch={dispatch} onTurnEnd={handleTurnEnd} onRestart={() => setShowRestartConfirm(true)} onContinueTurn={handleContinueTurn} onResetTurn={handleResetTurn} playSound={playSound} isMuted={isMuted} toggleMute={toggleMute} />}
-        {state.stage === GameStage.GameOver && <GameScreen gameState={state} dispatch={dispatch} onTurnEnd={()=>{}} onRestart={() => setShowRestartConfirm(true)} onContinueTurn={() => {}} onResetTurn={() => {}} playSound={playSound} isMuted={isMuted} toggleMute={toggleMute} />}
+        {state.stage === GameStage.Playing && <GameScreen gameState={state} dispatch={dispatch} onTurnEnd={handleTurnEnd} onRestart={() => setShowRestartConfirm(true)} onContinueTurn={handleContinueTurn} onResetTurn={handleResetTurn} playSound={playSound} isMuted={isMuted} toggleMute={toggleMute} apiKey={apiKey} />}
+        {state.stage === GameStage.GameOver && <GameScreen gameState={state} dispatch={dispatch} onTurnEnd={()=>{}} onRestart={() => setShowRestartConfirm(true)} onContinueTurn={() => {}} onResetTurn={() => {}} playSound={playSound} isMuted={isMuted} toggleMute={toggleMute} apiKey={apiKey} />}
 
         {showRestartConfirm && (
           <ConfirmModal
@@ -1105,6 +1112,14 @@ const App: React.FC = () => {
             message="정말 처음으로 돌아가시겠습니까? 현재 게임 내용은 모두 사라집니다."
             onConfirm={() => { dispatch({ type: 'RESET_GAME' }); setShowRestartConfirm(false); }}
             onCancel={() => setShowRestartConfirm(false)}
+          />
+        )}
+
+        {showApiKeyModal && (
+          <ApiKeyModal
+            currentApiKey={apiKey}
+            onSave={setApiKey}
+            onClose={() => setShowApiKeyModal(false)}
           />
         )}
       </div>

@@ -5,6 +5,8 @@ import HelpModal from './HelpModal';
 
 interface DynastySelectionProps {
   onSelectDynasty: (dynasty: Dynasty, board: BoardSpace[]) => void;
+  apiKey: string;
+  onOpenApiKeyModal: () => void;
 }
 
 const DYNASTY_DESCRIPTIONS: Record<Dynasty, string> = {
@@ -55,7 +57,7 @@ const generateRandomBoard = (dynasty: Dynasty): BoardSpace[] => {
 };
 
 
-const DynastySelection: React.FC<DynastySelectionProps> = ({ onSelectDynasty }) => {
+const DynastySelection: React.FC<DynastySelectionProps> = ({ onSelectDynasty, apiKey, onOpenApiKeyModal }) => {
   const dynasties: Dynasty[] = Object.keys(DYNASTY_NAMES) as Dynasty[];
   const [showHelp, setShowHelp] = useState(false);
   
@@ -82,7 +84,14 @@ const DynastySelection: React.FC<DynastySelectionProps> = ({ onSelectDynasty }) 
   return (
     <>
       <div className="bg-gradient-to-br from-white/90 to-amber-100/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 max-w-5xl mx-auto text-center border-4 border-amber-300 relative">
-        <div className="absolute top-6 right-6 z-20">
+        <div className="absolute top-6 right-6 z-20 flex gap-2">
+            <button 
+                onClick={onOpenApiKeyModal} 
+                className={`font-bold py-2 px-5 rounded-lg transition shadow-md text-lg flex items-center gap-2 ${apiKey ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                aria-label="API 키 설정"
+            >
+                {apiKey ? '✅ API 키 설정됨' : '🔑 API 키 입력'}
+            </button>
             <button 
                 onClick={() => setShowHelp(true)} 
                 className="bg-sky-500 text-white font-bold py-2 px-5 rounded-lg hover:bg-sky-600 transition shadow-md text-lg"

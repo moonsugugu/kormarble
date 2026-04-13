@@ -20,10 +20,10 @@ interface GameScreenProps {
   onRestart: () => void;
   onContinueTurn: () => void;
   onResetTurn: () => void;
-  // FIX: Add missing props to handle sounds and mute state.
   playSound: (soundUrl: string, volume?: number) => void;
   isMuted: boolean;
   toggleMute: () => void;
+  apiKey?: string;
 }
 
 const Toast: React.FC<{ message: string }> = ({ message }) => (
@@ -97,7 +97,7 @@ const ItemModal: React.FC<{ item: Item; onClose: () => void; }> = ({ item, onClo
 };
 
 
-const GameScreen: React.FC<GameScreenProps> = ({ gameState, dispatch, onTurnEnd, onRestart, onContinueTurn, onResetTurn, playSound, isMuted, toggleMute }) => {
+const GameScreen: React.FC<GameScreenProps> = ({ gameState, dispatch, onTurnEnd, onRestart, onContinueTurn, onResetTurn, playSound, isMuted, toggleMute, apiKey }) => {
   const { players, currentPlayerIndex, board, diceValues, isRolling, error, tollPaymentInfo, salaryPaymentInfo, isMoving, toastMessage, treasury } = gameState;
   const currentPlayer = players[currentPlayerIndex];
   const currentSpace = board[currentPlayer.position];
@@ -194,7 +194,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ gameState, dispatch, onTurnEnd,
 
     try {
         const dynastyName = DYNASTY_NAMES[gameState.dynasty];
-        const worksheetText = await generateWorksheetContent(dynastyName, gameState.board);
+        const worksheetText = await generateWorksheetContent(dynastyName, gameState.board, apiKey);
         
         const htmlContent = `
             <!DOCTYPE html>
